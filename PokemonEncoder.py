@@ -6,14 +6,14 @@ directory = "data/cards/"
 original_width = 342
 original_height = 245
 
-x_dim = original_height//2
-y_dim = original_width//2
+x_dim = original_width//2
+y_dim = original_height//2
 n_filters = 4
 
 dropout = .8
 
 
-n_dims = 100
+n_dims = 3
 
 
 def load_image_values(location):
@@ -103,7 +103,7 @@ def autoencoder():
 
     cost = tf.reduce_sum(tf.square(autoencoded_output - x))
 
-    opt = tf.train.AdamOptimizer(0.1).minimize(cost)
+    opt = tf.train.AdamOptimizer(0.001).minimize(cost)
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
