@@ -2,6 +2,7 @@ import tensorflow as tf
 import numpy as np
 import os
 from PIL import Image
+import random
 directory = "data/cards/"
 original_width = 342
 original_height = 245
@@ -13,7 +14,15 @@ n_filters = 4
 dropout = .8
 
 
-n_dims = 3
+n_dims = 12
+
+# User settings
+training_epochs = 100000
+IMAGE_DISPLAY_RATE = 20         # rate at which cards will display
+DISPLAY_IMAGES = False           # show cards at epochs
+TRAIN = True
+CONTINUE_FROM_CHECKPOINT = True
+cardToTry = "22_Aggron.png"
 
 
 def load_image_values(location):
@@ -28,7 +37,7 @@ def load_image_values(location):
     return lst
 
 
-def convert_array_to_image(arr, disp=False):
+def convert_array_to_image(arr):
     """
     takes an array of values -1 - 1 and converts it back to a
     pillow image file will display image if display is true
@@ -37,10 +46,28 @@ def convert_array_to_image(arr, disp=False):
     img_arr = ((arr + 1) * 128)
     img_arr = np.clip(img_arr, 0, 255).astype(np.uint8)
     img = Image.fromarray(img_arr)
-    if disp:
-        img.show()
+
     return img
 
+def merge_images(file1, file2):
+    """Merge two images into one, displayed side by side
+    :param file1: path to first image file
+    :param file2: path to second image file
+    :return: the merged Image object
+    """
+    image1 = file1
+    image2 = file2
+
+    (width1, height1) = image1.size
+    (width2, height2) = image2.size
+
+    result_width = width1 + width2
+    result_height = max(height1, height2)
+
+    result = Image.new('RGB', (result_width, result_height))
+    result.paste(im=image1, box=(0, 0))
+    result.paste(im=image2, box=(width1, 0))
+    return result
 
 def autoencoder():
 
@@ -103,23 +130,69 @@ def autoencoder():
 
     cost = tf.reduce_sum(tf.square(autoencoded_output - x))
 
-    opt = tf.train.AdamOptimizer(0.001).minimize(cost)
+    opt = tf.train.AdamOptimizer(0.002).minimize(cost)
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
         i = 0
-        for filename in os.listdir(directory):
-            try:
-                img = load_image_values(directory+filename)
-                feed_dict = {x: [img]}
-                r_cost, out_img,_ = sess.run([cost,autoencoded_output,opt],feed_dict=feed_dict)
-                print("Epoch " + str(i) + " Cost: " + str(r_cost))
-                out_img = np.array(out_img).squeeze()
-                if i % 100 == 0:
-                    convert_array_to_image(arr=out_img,disp=True)
-            except:
-                print("Failed: " + filename)
-            i += 1
+        saver = tf.train.Saver()
+        if TRAIN:
+            if CONTINUE_FROM_CHECKPOINT:
+                new_saver = tf.train.import_meta_graph('checkpoints/pokemon_model.meta')
+                new_saver.restore(sess, tf.train.latest_checkpoint('checkpoints'))
+
+            while i < training_epochs:
+                for filename in os.listdir(directory):
+                    try:
+
+
+                        img = load_image_values(directory+filename)
+                        feed_dict = {x: [img]}
+                        r_cost, out_img,_ = sess.run([cost, autoencoded_output, opt], feed_dict=feed_dict)
+
+                        out_img = np.array(out_img).squeeze()
+
+                        if i % 10 == 0:
+                            print("Epoch " + str(i) + " Cost: " + str(r_cost))
+
+                        if i % IMAGE_DISPLAY_RATE == 0 and DISPLAY_IMAGES:
+                            processed_image = convert_array_to_image(arr=out_img)
+                            original_image = convert_array_to_image(img)
+                            combined_image = merge_images(original_image, processed_image)
+                            combined_image.show()
+
+                        if i % 1000 == 0:
+                            path = saver.save(sess,'checkpoints/pokemon_model')
+                            print("model saved: " + path)
+
+                    except OSError:
+                        print("Failed to load: " + filename)
+                    except ValueError:
+                        print("incorrect image size: " + filename)
+                    i += 1
+        else:
+            new_saver = tf.train.import_meta_graph('checkpoints/pokemon_model.meta')
+            new_saver.restore(sess, tf.train.latest_checkpoint('checkpoints'))
+            files = []
+            for filename in os.listdir(directory):
+                files += [directory + filename]
+            random.shuffle(files)
+            for f in files:
+                try:
+                    img = load_image_values(f)
+                    feed_dict = {x: [img]}
+                    out_img = sess.run([autoencoded_output], feed_dict=feed_dict)
+                    out_img = np.array(out_img).squeeze()
+                    processed_image = convert_array_to_image(arr=out_img)
+                    original_image = convert_array_to_image(img)
+                    combined_image = merge_images(original_image, processed_image)
+                    combined_image.show()
+                except OSError:
+                    print("Failed to load: " + filename)
+                except ValueError:
+                    print("incorrect image size: " + filename)
+                input("press Enter to view next ")
+
 
 
 autoencoder()
