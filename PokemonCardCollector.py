@@ -12,6 +12,8 @@ directory = "data/cards/"
 start_url = "http://www.pokemon.com/us/pokemon-tcg/pokemon-cards/"
 extended_url = "?cardName=&cardText=&evolvesFrom=&card-grass=on&card-fire=on&card-water=on&card-lightning=on&card-psychic=on&card-fighting=on&card-darkness=on&card-metal=on&card-colorless=on&card-fairy=on&card-dragon=on&format=unlimited&hitPointsMin=0&hitPointsMax=250&retreatCostMin=0&retreatCostMax=5&totalAttackCostMin=0&totalAttackCostMax=5&particularArtist=&sort=name&sort=name"
 
+# TODO generate directory
+
 num_pages = 516
 def safe_soup_page(url):
     """
